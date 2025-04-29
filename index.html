@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+  <title>🔝 Mahesh Bhatt Image Compressor</title>
+  <link rel="icon" type="image/x-icon" href="mahesh.jpeg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <img src="mahesh.jpeg" alt="">
+        <h1>Upload and attach files</h1>
+        <p>Upload and attach files to this project</p>
+    </header>
+
+    <div class="dropzone" id="dropzone">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M64 0C28.7 0 0 28.7 0 64L0 448c0 35.3 28.7 64 64 64l256 0c35.3 0 64-28.7 64-64l0-288-128 0c-17.7 0-32-14.3-32-32L224 0 64 0zM256 0l0 128 128 0L256 0zM216 408c0 13.3-10.7 24-24 24s-24-10.7-24-24l0-102.1-31 31c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l72-72c9.4-9.4 24.6-9.4 33.9 0l72 72c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-31-31L216 408z"/></svg>
+      <p>Drag & Drop Images Here or Click to Upload</p>
+      <input type="file" id="fileInput" multiple accept="image/jpeg,image/png">
+    </div>
+
+    <label for="qualityRange">
+      <div class="rageText">Compression Quality:</div> <div class="rangeValue"><span id="qualityValue">70</span>%</div>
+    </label>
+    <input type="range" id="qualityRange" min="0" max="100" step="1" value="70">
+
+    <div class="controls">
+    <button id="compressBtn">Compress Images</button>
+    </div>
+
+    <div class="progress-bar" id="progressBarContainer" style="display:none;">
+    <div class="progress" id="progress"></div>
+    </div>
+
+    <div class="preview-container" id="previewContainer"></div>
+</div>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const dropzone = document.getElementById('dropzone');
+const qualityRange = document.getElementById('qualityRange');
+const qualityValue = document.getElementById('qualityValue');
+const compressBtn = document.getElementById('compressBtn');
+const previewContainer = document.getElementById('previewContainer');
+const progressBarContainer = document.getElementById('progressBarContainer');
+const progress = document.getElementById('progress');
+
+let selectedFiles = [];
+
+dropzone.addEventListener('click', () => fileInput.click());
+
+dropzone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropzone.style.background = 'rgba(255, 255, 255, 0.2)';
+});
+
+dropzone.addEventListener('dragleave', () => {
+  dropzone.style.background = 'rgba(255, 255, 255, 0.1)';
+});
+
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.style.background = 'rgba(255, 255, 255, 0.1)';
+  selectedFiles = Array.from(e.dataTransfer.files);
+  previewImages();
+});
+
+fileInput.addEventListener('change', (event) => {
+  selectedFiles = Array.from(event.target.files);
+  previewImages();
+});
+
+qualityRange.addEventListener('input', () => {
+  qualityValue.textContent = qualityRange.value;
+});
+
+function previewImages() {
+  previewContainer.innerHTML = '';
+  selectedFiles.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+
+      const previewDiv = document.createElement('div');
+      previewDiv.className = 'preview';
+      previewDiv.appendChild(img);
+      previewContainer.appendChild(previewDiv);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+compressBtn.addEventListener('click', async () => {
+  if (!selectedFiles.length) return;
+
+  previewContainer.innerHTML = '';
+  progressBarContainer.style.display = 'block';
+  progress.style.width = '0%';
+
+  for (let i = 0; i < selectedFiles.length; i++) {
+    const file = selectedFiles[i];
+    const compressedDataUrl = await compressImage(file, parseInt(qualityRange.value) / 100);
+
+    const originalSize = (file.size / 1024).toFixed(1); // KB
+    const compressedBlob = await (await fetch(compressedDataUrl)).blob();
+    const compressedSize = (compressedBlob.size / 1024).toFixed(1); // KB
+
+    const img = document.createElement('img');
+    img.src = compressedDataUrl;
+
+    const downloadLink = document.createElement('a');
+    downloadLink.href = compressedDataUrl;
+    downloadLink.download = `compressed_${file.name}`;
+    downloadLink.className = 'download-btn';
+    downloadLink.textContent = 'Download';
+
+    const info = document.createElement('div');
+    info.className = 'info';
+    info.textContent = `Original: ${originalSize}KB | Compressed: ${compressedSize}KB`;
+
+    const previewDiv = document.createElement('div');
+    previewDiv.className = 'preview';
+    previewDiv.appendChild(img);
+    previewDiv.appendChild(info);
+    previewDiv.appendChild(downloadLink);
+
+    previewContainer.appendChild(previewDiv);
+
+    progress.style.width = `${((i + 1) / selectedFiles.length) * 100}%`;
+  }
+
+  setTimeout(() => {
+    progressBarContainer.style.display = 'none';
+  }, 500);
+});
+
+function compressImage(file, quality) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      let mimeType = 'image/jpeg';
+      if (file.type === 'image/png') {
+        mimeType = 'image/png';
+      }
+
+      const compressedDataUrl = canvas.toDataURL(mimeType, quality);
+      resolve(compressedDataUrl);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+const slider = document.getElementById("qualityRange");
+
+    function updateSliderBackground() {
+      const min = slider.min ? Number(slider.min) : 0;
+      const max = slider.max ? Number(slider.max) : 100;
+      const val = Number(slider.value);
+
+      const percent = ((val - min) / (max - min)) * 100;
+
+      slider.style.background = `linear-gradient(to right, #000 0%, #000 ${percent}%, #ccc ${percent}%, #ccc 100%)`;
+    }
+
+    slider.addEventListener("input", updateSliderBackground);
+
+    // Initialize background on page load
+    updateSliderBackground();
+</script>
+
+</body>
+</html>
