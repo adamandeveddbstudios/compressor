@@ -8,6 +8,8 @@
   <title>🔝 Mahesh Bhatt Image Compressor</title>
   <link rel="icon" type="image/x-icon" href="mahesh.jpeg">
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"></script>
+
 </head>
 <body>
 <div class="container">
@@ -30,6 +32,7 @@
 
     <div class="controls">
     <button id="compressBtn">Compress Images</button>
+    <button id="downloadAllBtn" style="display:none;">Download All</button>
     </div>
 
     <div class="progress-bar" id="progressBarContainer" style="display:none;">
@@ -102,22 +105,22 @@ compressBtn.addEventListener('click', async () => {
   progressBarContainer.style.display = 'block';
   progress.style.width = '0%';
 
+  const zip = new JSZip();
+
   for (let i = 0; i < selectedFiles.length; i++) {
     const file = selectedFiles[i];
     const compressedDataUrl = await compressImage(file, parseInt(qualityRange.value) / 100);
 
-    const originalSize = (file.size / 1024).toFixed(1); // KB
+    const originalSize = (file.size / 1024).toFixed(1);
     const compressedBlob = await (await fetch(compressedDataUrl)).blob();
-    const compressedSize = (compressedBlob.size / 1024).toFixed(1); // KB
+    const compressedSize = (compressedBlob.size / 1024).toFixed(1);
 
+    // Add to ZIP
+    zip.file(`compressed_${file.name}`, compressedBlob);
+
+    // Preview
     const img = document.createElement('img');
     img.src = compressedDataUrl;
-
-    const downloadLink = document.createElement('a');
-    downloadLink.href = compressedDataUrl;
-    downloadLink.download = `compressed_${file.name}`;
-    downloadLink.className = 'download-btn';
-    downloadLink.textContent = 'Download';
 
     const info = document.createElement('div');
     info.className = 'info';
@@ -127,17 +130,35 @@ compressBtn.addEventListener('click', async () => {
     previewDiv.className = 'preview';
     previewDiv.appendChild(img);
     previewDiv.appendChild(info);
-    previewDiv.appendChild(downloadLink);
 
     previewContainer.appendChild(previewDiv);
 
     progress.style.width = `${((i + 1) / selectedFiles.length) * 100}%`;
   }
 
+  // Enable and handle download all
+  const downloadAllBtn = document.getElementById('downloadAllBtn');
+  downloadAllBtn.style.display = 'inline-block';
+  compressBtn.style.display = 'none';
+
+  downloadAllBtn.onclick = async () => {
+    const content = await zip.generateAsync({ type: 'blob' });
+    const zipUrl = URL.createObjectURL(content);
+
+    const a = document.createElement('a');
+    a.href = zipUrl;
+    a.download = 'compressed_images.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(zipUrl);
+  };
+
   setTimeout(() => {
     progressBarContainer.style.display = 'none';
   }, 500);
 });
+
 
 function compressImage(file, quality) {
   return new Promise((resolve) => {
